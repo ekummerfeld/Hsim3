@@ -155,7 +155,7 @@ public class HsimAutoRun {
                 DataWriter.writeRectangularData(newDataSet, fileWriter, delimiter);
                 fileWriter.close();
             }
-        //=======Run FGES on the output data, and compare it to the original learned graph
+            //=======Run FGES on the output data, and compare it to the original learned graph
             //Path dataFileOut = Paths.get(filenameOut);
             //edu.cmu.tetrad.io.DataReader dataReaderOut = new VerticalTabularDiscreteDataReader(dataFileOut, delimiter);
 
