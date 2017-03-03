@@ -111,9 +111,9 @@ public class HsimContinuous {
         ExecutorService executorService = Executors.newCachedThreadPool();
 
         List<Integer> taskRows = new ArrayList<>();
-        //can change the times 5.0 part if it seems better to do so
-        int taskSize = (int) Math.ceil(data.getNumRows()/(5.0*cores));
-        System.out.println(" rows: " + data.getNumRows() + " taskSize: " + taskSize);
+        //can change the times 2.0 part if it seems better to do so
+        int taskSize = (int) Math.ceil(data.getNumRows()/(2.0*cores));
+        //System.out.println(" rows: " + data.getNumRows() + " taskSize: " + taskSize);
         for (int row = 0; row < data.getNumRows(); row++) {
             // for each choice we will create a task that will run on a separate thread
             //System.out.println("edge#"+edgetracker);
