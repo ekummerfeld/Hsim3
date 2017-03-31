@@ -137,6 +137,28 @@ public class HsimContinuous {
                 taskRows.clear();
             }
         }
+        if (!taskRows.isEmpty()) {
+            //add the taskEdges to a new task, and then empty it
+            final List<Integer> runRows = new ArrayList<>(taskRows);
+            todo.add(new Callable(){
+                public Void call() throws Exception {
+
+                    SimulateRowsTask SRtask = new SimulateRowsTask(subgraphIM,mbAll);
+                    SRtask.compute(runRows);
+                    return null;
+                }
+            });
+
+            taskRows.clear();
+        }
+        //invoke all the things!
+        try{
+            //System.out.println("number of parallel tasks being invoked: " + todo.size());
+            executorService.invokeAll(todo);
+            executorService.shutdown();
+        } catch (Exception e){
+
+        }
         return data;
     }
 

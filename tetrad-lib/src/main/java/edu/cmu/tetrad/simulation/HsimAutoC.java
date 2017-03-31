@@ -64,11 +64,8 @@ public class HsimAutoC {
 
         Graph estGraph = fges.search();
         //if (verbose) System.out.println(estGraph);
-
-        //Pattern estPattern = new Pattern(estGraph);
-        PatternToDag patternToDag = new PatternToDag(estGraph);
-        Graph estGraphDAG = patternToDag.patternToDagMeek();
-        Dag estDAG = new Dag(estGraphDAG);
+        estGraph = dagFromPattern(estGraph);
+        Dag estDAG = new Dag(estGraph);
         //Dag estDAG = new Dag(estGraph);
 
         //===========Identify the nodes to be resimulated===========
@@ -146,6 +143,64 @@ public class HsimAutoC {
         output = HsimUtils.errorEval(estEvalGraphOut,estEvalGraph);
         if (verbose) System.out.println(output[0]+" "+output[1]+" "+output[2]+" "+output[3]+" "+output[4]);
         return output;
+    }
+    private static Graph dagFromPattern(Graph pattern) {
+        Graph dag = new EdgeListGraph(pattern);;
+        MeekRules rules = new MeekRules();
+
+        Random rand = new Random();
+        WHILE:
+        while (true) {
+            List<Edge> edges = new ArrayList<>(dag.getEdges());
+            Collections.shuffle(edges);
+            for (Edge edge : edges) {
+                if (Edges.isUndirectedEdge(edge)) {
+                    Node x, y;
+                    if (rand.nextBoolean()){
+                        x = edge.getNode1();
+                        y = edge.getNode2();
+                    } else {
+                        y = edge.getNode1();
+                        x = edge.getNode2();
+                    }
+
+                    List<Node> okx = dag.getAdjacentNodes(x);
+                    okx.removeAll(dag.getChildren(x));
+                    okx.remove(y);
+
+                    List<Node> oky = dag.getAdjacentNodes(y);
+                    oky.removeAll(dag.getChildren(y));
+                    oky.remove(x);
+
+                    if (!okx.isEmpty()) {
+                        Node other = okx.get(0);
+                        dag.removeEdge(other, x);
+                        dag.removeEdge(y, x);
+                        dag.addDirectedEdge(other, x);
+                        dag.addDirectedEdge(y, x);
+                    } else if (!oky.isEmpty()) {
+                        Node other = oky.get(0);
+                        dag.removeEdge(other, y);
+                        dag.removeEdge(x, y);
+                        dag.addDirectedEdge(other, y);
+                        dag.addDirectedEdge(x, y);
+                    } else {
+                        dag.removeEdge(x, y);
+                        dag.addDirectedEdge(x, y);
+                    }
+
+                    rules.orientImplied(dag);
+                    continue WHILE;
+                }
+            }
+            if (!dag.existsDirectedCycle()){
+                break;
+            } else {
+                dag = new EdgeListGraph(pattern);
+            }
+        }
+
+        return dag;
     }
     //******* Methods for setting values to private variables****************//
     public void setVerbose(boolean verbosity){

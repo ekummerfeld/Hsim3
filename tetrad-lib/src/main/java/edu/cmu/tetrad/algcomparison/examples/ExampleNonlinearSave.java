@@ -35,10 +35,10 @@ public class ExampleNonlinearSave {
     public static void main(String... args) {
         Parameters parameters = new Parameters();
 
-        parameters.set("numRuns", 100);
+        parameters.set("numRuns", 500);
         parameters.set("numMeasures", 20);
-        parameters.set("avgDegree", 3);
-        parameters.set("sampleSize", 500);
+        parameters.set("avgDegree", 2);
+        parameters.set("sampleSize", 100);
         parameters.set("percentDiscrete", 0);
         parameters.set("minCategories", 2);
         parameters.set("maxCategories", 5);

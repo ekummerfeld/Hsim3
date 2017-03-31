@@ -3,11 +3,10 @@ package edu.cmu.tetrad.simulation;
 import edu.cmu.tetrad.data.CovarianceMatrixOnTheFly;
 import edu.cmu.tetrad.data.DataSet;
 import edu.cmu.tetrad.data.ICovarianceMatrix;
-import edu.cmu.tetrad.graph.Dag;
-import edu.cmu.tetrad.graph.Graph;
-import edu.cmu.tetrad.graph.GraphUtils;
+import edu.cmu.tetrad.graph.*;
 import edu.cmu.tetrad.io.TabularContinuousDataReader;
 import edu.cmu.tetrad.search.Fges;
+import edu.cmu.tetrad.search.MeekRules;
 import edu.cmu.tetrad.search.PatternToDag;
 import edu.cmu.tetrad.search.SemBicScore;
 import edu.cmu.tetrad.sem.SemEstimator;
@@ -29,14 +28,18 @@ public class HsimEvalFromData {
         System.out.println("Beginning Evaluation");
         String nl = System.lineSeparator();
         String output = "Simulation study output comparing Fsim and Hsim on predicting graph discovery accuracy"+nl;
-        int iterations = 100;
+        int iterations = 500;
 
         int vars=20;
-        int cases=500;
-        int edgeratio = 3;
+        int cases=300;
+        int edgeratio = 2;
 
-        List<Integer> hsimRepeat = Arrays.asList(40);
-        List<Integer> fsimRepeat = Arrays.asList(40);
+        boolean detailedData = true;
+
+        String source = "c300r2L";
+
+        List<Integer> hsimRepeat = Arrays.asList(100);
+        List<Integer> fsimRepeat = Arrays.asList(100);
 
         List<PRAOerrors>[] fsimErrsByPars = new ArrayList[fsimRepeat.size()];
         int whichFrepeat = 0;
@@ -54,25 +57,31 @@ public class HsimEvalFromData {
             whichHrepeat++;
         }
 
+        //for calculating stats in post processing, need to store and print to file error values
+        //from every iteration. Construct a DataSet whose rows are iterations, and whose columns
+        //are the true errors, hsim's estimated errors, and fsim's estimatd errors.
+        //then print that data to a file. Put all of this in an optionally executable chunk of code.
+        String dataOutput = "AR, AP, OR, OP, fsimAR, fsimAP, fsimOR, fsimOP, hsimAR, hsimAP, hsimOR, hsimOP"+nl;
+
         //!(*%(@!*^!($%!^ START ITERATING HERE !#$%(*$#@!^(*!$*%(!$#
         try {
-            for (int iterate = 0; iterate<iterations; iterate++){
+            for (int iterate = 1; iterate<=iterations; iterate++){
                 System.out.println("iteration "+iterate);
                 //@#$%@$%^@$^@$^@%$%@$#^ LOADING THE DATA AND GRAPH @$#%%*#^##*^$#@%$
                 DataSet data1;
-                Graph graph1 = GraphUtils.loadGraphTxt(new File("graph/graph.1.txt"));
+                Graph graph1 = GraphUtils.loadGraphTxt(new File(source+"/graph/graph." + iterate + ".txt"));
                 Dag odag = new Dag(graph1);
 
                 Set<String> eVars = new HashSet<String>();
                 eVars.add("MULT");
-                Path dataFile = Paths.get("data/data.1.txt");
+                Path dataFile = Paths.get(source+"/data/data." + iterate + ".txt");
 
                 edu.cmu.tetrad.io.DataReader dataReader = new TabularContinuousDataReader(dataFile, '\t');
 
                 data1 = dataReader.readInData(eVars);
                 vars = data1.getNumColumns();
                 cases = data1.getNumRows();
-                edgeratio = 3;
+                //edgeratio = 3;
 
                 //!#@^$@&%^!#$!&@^ CALCULATING TARGET ERRORS $%$#@^@!%!#^$!%$#%
                 ICovarianceMatrix newcov = new CovarianceMatrixOnTheFly(data1);
@@ -82,14 +91,18 @@ public class HsimEvalFromData {
                 ofgs.setNumPatternsToStore(0);
                 Graph oFGSGraph = ofgs.search();//***********This is the original FGS output on the data
                 PRAOerrors oErrors = new PRAOerrors(HsimUtils.errorEval(oFGSGraph, odag),"target errors");
+                if (detailedData){
+                    dataOutput += oErrors.getAdjRecall() + ", " + oErrors.getAdjPrecision() + ", " + oErrors.getOrientRecall() + ", " + oErrors.getOrientPrecision() + ", ";
+                }
 
 
                 //**then step 1: full resim. iterate through the combinations of estimator parameters (just repeat num)
                 for (whichFrepeat=0;whichFrepeat<fsimRepeat.size();whichFrepeat++){
                     ArrayList<PRAOerrors> errorsList = new ArrayList<PRAOerrors>();
                     for (int r =0;r<fsimRepeat.get(whichFrepeat);r++){
-                        PatternToDag pickdag = new PatternToDag(oFGSGraph);
-                        Graph fgsDag = pickdag.patternToDagMeek();
+                        //PatternToDag pickdag = new PatternToDag(oFGSGraph);
+                        //Graph fgsDag = pickdag.patternToDagMeek();
+                        Graph fgsDag = dagFromPattern(oFGSGraph);
                         Dag fgsdag2 = new Dag(fgsDag);
                         //then fit an IM to this dag and the data. GeneralizedSemEstimator seems to bug out
                         //GeneralizedSemPm simSemPm = new GeneralizedSemPm(fgsdag2);
@@ -114,6 +127,9 @@ public class HsimEvalFromData {
                     }
                     PRAOerrors avErrors = new PRAOerrors(errorsList,"Average errors for Fsim at repeat="+fsimRepeat.get(whichFrepeat));
                     //if (verbosity>3) System.out.println(avErrors.allToString());
+                    if (detailedData){
+                        dataOutput += avErrors.getAdjRecall() + ", " + avErrors.getAdjPrecision() + ", " + avErrors.getOrientRecall() + ", " + avErrors.getOrientPrecision() + ", ";
+                    }
                     //****calculate the squared errors of prediction, store all these errors in a list
                     double FsimAR2 = (avErrors.getAdjRecall()-oErrors.getAdjRecall()) *
                             (avErrors.getAdjRecall()-oErrors.getAdjRecall());
@@ -133,6 +149,9 @@ public class HsimEvalFromData {
                     HsimRepeatAC study = new HsimRepeatAC(data1);
                     PRAOerrors HsimErrors= new PRAOerrors(study.run(1, hsimRepeat.get(whichHrepeat)),"Hsim errors" +
                             "at rsize="+1+" repeat="+hsimRepeat.get(whichHrepeat));
+                    if (detailedData){
+                        dataOutput += HsimErrors.getAdjRecall() + ", " + HsimErrors.getAdjPrecision() + ", " + HsimErrors.getOrientRecall() + ", " + HsimErrors.getOrientPrecision() + nl;
+                    }
                     //****calculate the squared errors of prediction
                     double HsimAR2=(HsimErrors.getAdjRecall()-oErrors.getAdjRecall()) *
                             (HsimErrors.getAdjRecall()-oErrors.getAdjRecall());
@@ -147,6 +166,7 @@ public class HsimEvalFromData {
                     hsimErrsByPars[0][whichHrepeat].add(Hsim2);
                 }
             }
+
 
 
             //Average the squared errors for each set of fsim/hsim params across all iterations
@@ -172,7 +192,6 @@ public class HsimEvalFromData {
             //record all the params, the base error values, and the fsim/hsim mean squared errors
             String latexTable = HsimUtils.makeLatexTable(latexTableArray);
 
-
             PrintWriter writer = new PrintWriter("latexTable.txt", "UTF-8");
             writer.println(latexTable);
             writer.close();
@@ -180,6 +199,13 @@ public class HsimEvalFromData {
             PrintWriter writer2 = new PrintWriter("HvsF-SimulationEvaluation.txt", "UTF-8");
             writer2.println(output);
             writer2.close();
+
+            //priunt detailed data, if turned on
+            if (detailedData){
+                PrintWriter writer3 = new PrintWriter("detailedDataFor"+source+".txt", "UTF-8");
+                writer3.println(dataOutput);
+                writer3.close();
+            }
 
             long timestop = System.nanoTime();
             System.out.println("Evaluation Concluded. Duration: " + (timestop - timestart)/1000000000 + "s");
@@ -198,5 +224,64 @@ public class HsimEvalFromData {
             output[i]=vStrings[i-1];
         }
         return output;
+    }
+
+    private static Graph dagFromPattern(Graph pattern) {
+        Graph dag = new EdgeListGraph(pattern);;
+        MeekRules rules = new MeekRules();
+
+        Random rand = new Random();
+        WHILE:
+        while (true) {
+            List<Edge> edges = new ArrayList<>(dag.getEdges());
+            Collections.shuffle(edges);
+            for (Edge edge : edges) {
+                if (Edges.isUndirectedEdge(edge)) {
+                    Node x, y;
+                    if (rand.nextBoolean()){
+                        x = edge.getNode1();
+                        y = edge.getNode2();
+                    } else {
+                        y = edge.getNode1();
+                        x = edge.getNode2();
+                    }
+
+                    List<Node> okx = dag.getAdjacentNodes(x);
+                    okx.removeAll(dag.getChildren(x));
+                    okx.remove(y);
+
+                    List<Node> oky = dag.getAdjacentNodes(y);
+                    oky.removeAll(dag.getChildren(y));
+                    oky.remove(x);
+
+                    if (!okx.isEmpty()) {
+                        Node other = okx.get(0);
+                        dag.removeEdge(other, x);
+                        dag.removeEdge(y, x);
+                        dag.addDirectedEdge(other, x);
+                        dag.addDirectedEdge(y, x);
+                    } else if (!oky.isEmpty()) {
+                        Node other = oky.get(0);
+                        dag.removeEdge(other, y);
+                        dag.removeEdge(x, y);
+                        dag.addDirectedEdge(other, y);
+                        dag.addDirectedEdge(x, y);
+                    } else {
+                        dag.removeEdge(x, y);
+                        dag.addDirectedEdge(x, y);
+                    }
+
+                    rules.orientImplied(dag);
+                    continue WHILE;
+                }
+            }
+            if (!dag.existsDirectedCycle()){
+                break;
+            } else {
+                dag = new EdgeListGraph(pattern);
+            }
+        }
+
+        return dag;
     }
 }

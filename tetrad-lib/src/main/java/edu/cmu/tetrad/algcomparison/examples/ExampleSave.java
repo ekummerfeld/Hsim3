@@ -36,10 +36,11 @@ public class ExampleSave {
     public static void main(String... args) {
         Parameters parameters = new Parameters();
 
-        parameters.set("numRuns", 10);
-        parameters.set("numMeasures", 100);
-        parameters.set("avgDegree", 4);
-        parameters.set("sampleSize", 100, 500, 1000);
+        parameters.set("numRuns", 500);
+        parameters.set("numMeasures", 20);
+        parameters.set("avgDegree", 2);
+        parameters.set("sampleSize", 300);
+        parameters.set("differentGraphs",true);
 
         Simulation simulation = new SemSimulation(new RandomForward());
         Comparison comparison = new Comparison();
